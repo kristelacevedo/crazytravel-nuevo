@@ -2,10 +2,10 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 
 //  Importamos los componentes que acabamos de crear en la nueva carpeta
-import AccountSecurity from '../../components/profile/AccountSecurity';
-import PersonalData from '../../components/profile/PersonalData';
-import MyTrips from '../../components/profile/MyTrips';
-import MyPoints from '../../components/profile/MyPoints';
+import AccountSecurity from '../../components/layout/profile/AccountSecurity';
+import PersonalData from '../../components/layout/profile/PersonalData';
+import MyTrips from '../../components/layout/profile/MyTrips';
+import MyPoints from '../../components/layout/profile/MyPoints';
 
 export default function Profile() {
   const [activeTab, setActiveTab] = useState<'cuenta' | 'datos' | 'reservas' | 'puntos'>('cuenta');

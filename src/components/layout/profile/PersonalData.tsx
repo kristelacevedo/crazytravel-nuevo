@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import type { CSSProperties } from 'react';
-import { formatRut, validateRut } from '../../lib/validators/rut';
-import api from '../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
+import api from '../../../services/api';
+import { formatRut, validateRut } from '../../../lib/validators/rut';
 
-// ─── Definición de Tipos ─────────────────────────────────────────────────────
+// Datos del perfil
 interface FullProfileData {
   first_name: string;
   middle_name?: string;
@@ -20,6 +21,7 @@ interface FullProfileData {
   emergency_phone: string;
 }
 
+// Tipo para el formulario
 interface PersonalDataForm extends FullProfileData {
   has_allergies_radio: 'si' | 'no';
 }
@@ -30,6 +32,7 @@ const capitalize = (text: string) => {
 };
 
 export default function PersonalData() {
+  const { user } = useAuth();
   const [fetching, setFetching] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [globalMsg, setGlobalMsg] = useState({ type: '', text: '' });
@@ -52,78 +55,40 @@ export default function PersonalData() {
     name: 'has_allergies_radio',
   });
 
-  // ─── Carga de Datos desde el Backend ────────────────────────────────────────
+  // Cargar datos desde el backend
   useEffect(() => {
     async function loadData() {
+      if (!user?.id) return;
       try {
         setFetching(true);
+        const response = await api.get('/profile');
+        const data = response.data;
         
-        // Intentar obtener datos del backend
-        const token = localStorage.getItem('token');
-        if (token) {
-          try {
-            const response = await api.get('/profile');
-            const data = response.data;
-            
-            setValue('first_name', data.first_name || '');
-            setValue('middle_name', data.middle_name || '');
-            setValue('last_name', data.last_name || '');
-            setValue('second_last_name', data.second_last_name || '');
-            setValue('rut', data.rut || '');
-            setValue('passport', data.passport || '');
-            setValue('birth_date', data.birth_date || '');
-            
-            const cleanPhone = data.phone?.startsWith('9') ? data.phone.slice(1) : data.phone;
-            setValue('phone', cleanPhone || '');
-            
-            setValue('food_preference', data.food_preference || 'Ninguna');
-            setValue('allergies', data.allergies || '');
-            setValue('emergency_name', data.emergency_name || '');
-            
-            const cleanEmergencyPhone = data.emergency_phone?.startsWith('9') ? data.emergency_phone.slice(1) : data.emergency_phone;
-            setValue('emergency_phone', cleanEmergencyPhone || '');
-            
-            if (data.allergies && data.allergies.trim() !== '') {
-              setValue('has_allergies_radio', 'si');
-            } else {
-              setValue('has_allergies_radio', 'no');
-            }
-            setIsEditing(false);
-            setFetching(false);
-            return;
-          } catch (apiErr) {
-            console.log('No se pudo obtener del backend, usando localStorage');
-          }
+        setValue('first_name', data.first_name || '');
+        setValue('middle_name', data.middle_name || '');
+        setValue('last_name', data.last_name || '');
+        setValue('second_last_name', data.second_last_name || '');
+        setValue('rut', data.rut || '');
+        setValue('passport', data.passport || '');
+        setValue('birth_date', data.birth_date || '');
+        
+        const cleanPhone = data.phone?.startsWith('9') ? data.phone.slice(1) : data.phone;
+        setValue('phone', cleanPhone || '');
+        
+        setValue('food_preference', data.food_preference || 'Ninguna');
+        setValue('allergies', data.allergies || '');
+        setValue('emergency_name', data.emergency_name || '');
+        
+        const cleanEmergencyPhone = data.emergency_phone?.startsWith('9') ? data.emergency_phone.slice(1) : data.emergency_phone;
+        setValue('emergency_phone', cleanEmergencyPhone || '');
+        
+        if (data.allergies && data.allergies.trim() !== '') {
+          setValue('has_allergies_radio', 'si');
+        } else {
+          setValue('has_allergies_radio', 'no');
         }
         
-        // Fallback a localStorage
-        const savedProfile = localStorage.getItem('crazy_travel_profile');
-        if (savedProfile) {
-          const data = JSON.parse(savedProfile) as FullProfileData;
-          
-          setValue('first_name', data.first_name || '');
-          setValue('middle_name', data.middle_name || '');
-          setValue('last_name', data.last_name || '');
-          setValue('second_last_name', data.second_last_name || '');
-          setValue('rut', data.rut || '');
-          setValue('passport', data.passport || '');
-          setValue('birth_date', data.birth_date || '');
-          
-          const cleanPhone = data.phone?.startsWith('9') ? data.phone.slice(1) : data.phone;
-          setValue('phone', cleanPhone || '');
-          
-          setValue('food_preference', data.food_preference || 'Ninguna');
-          setValue('allergies', data.allergies || '');
-          setValue('emergency_name', data.emergency_name || '');
-          
-          const cleanEmergencyPhone = data.emergency_phone?.startsWith('9') ? data.emergency_phone.slice(1) : data.emergency_phone;
-          setValue('emergency_phone', cleanEmergencyPhone || '');
-          
-          if (data.allergies && data.allergies.trim() !== '') {
-            setValue('has_allergies_radio', 'si');
-          } else {
-            setValue('has_allergies_radio', 'no');
-          }
+        if (data.first_name) {
           setIsEditing(false);
         } else {
           setIsEditing(true);
@@ -136,10 +101,11 @@ export default function PersonalData() {
       }
     }
     loadData();
-  }, [setValue]);
+  }, [user?.id, setValue]);
 
-  // ─── Guardado en el Backend ──────────────────────────────────────────────────
+  // Guardar datos en el backend
   const onSubmit = async (formData: PersonalDataForm) => {
+    if (!user?.id) return;
     setGlobalMsg({ type: '', text: '' });
 
     const payload: FullProfileData = {
@@ -158,24 +124,18 @@ export default function PersonalData() {
     };
     
     try {
-      // Enviar al backend
-      const response = await api.put('/profile', payload);
-      
-      if (response.status === 200) {
-        // Guardar también en localStorage como respaldo
-        localStorage.setItem('crazy_travel_profile', JSON.stringify(payload));
-        setGlobalMsg({ type: 'success', text: '¡Ficha de pasajero actualizada correctamente en el sistema!' });
-        setIsEditing(false);
-      }
-    } catch (err: any) {
-      console.error('Error al guardar:', err);
-      const errorMsg = err.response?.data?.error || 'Error al procesar y guardar la información.';
-      setGlobalMsg({ type: 'error', text: errorMsg });
+      await api.put('/profile', payload);
+      setGlobalMsg({ type: 'success', text: '¡Ficha de pasajero actualizada correctamente!' });
+      setIsEditing(false);
+    } catch (err) {
+      console.error(err);
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido al guardar.';
+      setGlobalMsg({ type: 'error', text: errorMessage });
     }
   };
 
   if (fetching) {
-    return <p style={{ color: '#475569', padding: '20px', textAlign: 'center' }}>⏳ Sincronizando tus antecedentes con Crazy Travel...</p>;
+    return <p style={{ color: '#475569', padding: '20px', textAlign: 'center' }}>⏳ Descargando tus antecedentes desde Crazy Travel...</p>;
   }
 
   return (
@@ -192,7 +152,7 @@ export default function PersonalData() {
 
       <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'grid', gap: '24px' }}>
         
-        {/* --- SECCIÓN 1: IDENTIDAD --- */}
+        {/* SECCIÓN 1: IDENTIDAD */}
         <div>
           <h3 style={subSectionTitleStyle}>1. Identidad</h3>
           <div style={twoColGrid}>
@@ -275,7 +235,7 @@ export default function PersonalData() {
 
         <hr style={dividerStyle} />
 
-        {/* --- SECCIÓN 2: CONTACTO Y BIENESTAR --- */}
+        {/* SECCIÓN 2: CONTACTO Y BIENESTAR */}
         <div>
           <h3 style={subSectionTitleStyle}>2. Contacto y Bienestar</h3>
           <div style={twoColGrid}>
@@ -337,7 +297,7 @@ export default function PersonalData() {
 
         <hr style={dividerStyle} />
 
-        {/* --- SECCIÓN 3: EMERGENCIA --- */}
+        {/* SECCIÓN 3: EMERGENCIA */}
         <div>
           <h3 style={subSectionTitleStyle}>3. Contacto de Emergencia</h3>
           <div style={twoColGrid}>
@@ -388,7 +348,7 @@ export default function PersonalData() {
   );
 }
 
-// ─── Estilos ─────────────────────────────────────────────────────────────────
+// Estilos
 const subSectionTitleStyle: CSSProperties = { fontSize: '18px', color: '#0f766e', marginBottom: '16px', fontWeight: 'bold' };
 const dividerStyle: CSSProperties = { border: 'none', borderTop: '1px solid #e2e8f0', margin: '0' };
 const twoColGrid: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' };
